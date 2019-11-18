@@ -111,6 +111,11 @@ for k in file_list:
         lines_array = np.array(lines[0:])     # reading each line with string type with list format
         new_lines_array = np.zeros((len(lines_array),4),dtype = float)      # making new array with [n,2] matrix form for saving with floating type
         data.close()
+
+    # Making new data file
+    update_file = k + "_new"
+    new_file_data = open(new_file_path + "/" + update_file + ".dat",'w')
+    new_file_data.write(f'Wavelength(nm) \t Original intensity \t Subtracted intensity \t Calibrated intensity \n')
     
     # Finding exposure time in file name
     # If same file name is in folder, extracting is simple.
@@ -137,8 +142,16 @@ for k in file_list:
         nnew_line = new_line.split('\t')  # Splitting with tap
         new_lines_array[l,0] = nnew_line[0]     # Wavelength
         new_lines_array[l,1] = nnew_line[1]     # raw intensity
-        new_lines_array[l,2] = float(nnew_line[1]) - float(dark_lines_array[l,1])     # Intensity subtracted by dark intensity
-        new_lines_array[l,3] = new_lines_array[l,2] * float(cal_lines_array[l,1])     # Multiplying calibration coefficient
+        new_lines_array[l,2] = float(nnew_line[1]) - float(dark_lines_array[l].split('\t')[1])     # Intensity subtracted by dark intensity
+        new_lines_array[l,3] = new_lines_array[l,2] * float(cal_lines_array[l].split('\t')[1])     # Multiplying calibration coefficient
+
+        # For writing files
+        temp_1 = new_lines_array[l,0]
+        temp_2 = new_lines_array[l,1]
+        temp_3 = new_lines_array[l,2]
+        temp_4 = new_lines_array[l,3]
+        new_file_data.write('f{temp_1} \t {temp_2} \t {temp_3} \t {temp_4} \n')
+    new_file_data.close()
 
     for i,ii in enumerate(lines_up):
         peak_up_intensity[i,0] = new_lines_array[np.where(new_lines_array[:,0] == float(ii)), 0]
@@ -156,6 +169,7 @@ for k in file_list:
             peak_ratio[a,1] = peak_lo_intensity[k1, 0]
             peak_ratio[a,2] = peak_up_intensity[k2, 1] / peak_lo_intensity[k1, 1]
             
+            # For writing files
             peak_ratio_wave_up = peak_up_intensity[k2, 0]
             peak_ratio_wave_lo = peak_lo_intensity[k1, 0]
             peak_ratio_one = peak_up_intensity[k2, 1] / peak_lo_intensity[k1, 1]
