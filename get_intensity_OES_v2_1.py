@@ -6,7 +6,7 @@ Created on Tue Feb 12 00:00:38 2019
 
 v2: input spectrum file with information of measurement specification
 v2.1: input spectrum file without header
-v3: Saving files with intensity and ratios depending on the conditions
+v3: adding intensity calibration function by subtracting dark spectrum and muliplying calibration coefficient
 """
 from tkinter import *
 from tkinter import filedialog
@@ -33,6 +33,13 @@ new_file_path = file_path + '/new_output'
 if not os.path.exists(new_file_path):
     os.mkdir(new_file_path)
     
+# Loading dark intensity folder path and calibration file
+dark_intensity_folder_path = filedialog.askdirectory(initialdir="C:\\Users\\jmsong\\Documents\\00_NFRI\\00_연구관리\\00_실험데이터\\01_OES", title="Select up wavelength file")
+calibration_coeff_file = filedialog.askopenfilename(initialdir="C:\\Users\\jmsong\\Documents\\00_NFRI\\00_연구관리\\00_실험데이터\\01_OES", title="Select lo wavelength file")
+file_list_dark = os.listdir(dark_intensity_folder_path)
+new_file_list_dark = []
+file_list_dark.sort()
+
 # Making files for intensity ans ratio values depending on the experiment condition
 new_file_name_intensity = "peak intensity"
 new_file_name_ratio = "peak ratio"
@@ -88,18 +95,35 @@ intensity_lo = 1
         
 if len(file_list) == 0:
     print('!!No data files in this directory')
+if len(file_list_dark) == 0:
+    print('!!No dark data files in this directory')
+
+# Loading Calibration coefficient file
+with open(calibration_coeff_file) as data_cal:
+    lines_cal = data_cal.readlines()
+    cal_lines_array = np.array(lines_cal[0:])
 
 for k in file_list:
     if k == 'new_output':
         continue
     with open(file_path + "/"+ k) as data:
         lines = data.readlines()
+        lines_array = np.array(lines[0:])     # reading each line with string type with list format
+        new_lines_array = np.zeros((len(lines_array),4),dtype = float)      # making new array with [n,2] matrix form for saving with floating type
         data.close()
     
-    lines_array = np.array(lines[0:])     # reading each line with string type with list format
-    new_lines_array = np.zeros((len(lines_array),2),dtype = float)      # making new array with [n,2] matrix form for saving with floating type
-    
-        # Making and opening new output file (ph=peak height)
+    # Finding exposure time in file name
+    # If same file name is in folder, extracting is simple.
+    where_time = k.find("ms")
+    exp_time = k[where_time-4:where_time]
+    for kk in file_list_dark:
+        if exp_time in kk:
+            with open(dark_intensity_folder_path + "/" + kk) as dark_data:
+                dark_lines = dark_data.readlines()
+                dark_lines_array = np.array(dark_lines[0:])
+                dark_data.close()
+
+    # Making and opening new output file (ph=peak height)
     ph_file_name = "ph_intensity_" + k
     ph_ratio_file_name = "ph_ratio_" + k
     intensity_file = open(file_path + "/new_output/" + ph_file_name,'w')
@@ -111,16 +135,18 @@ for k in file_list:
                 
     for l, new_line in enumerate(lines_array):
         nnew_line = new_line.split('\t')  # Splitting with tap
-        new_lines_array[l,0] = nnew_line[0]
-        new_lines_array[l,1] = nnew_line[1]
-    
+        new_lines_array[l,0] = nnew_line[0]     # Wavelength
+        new_lines_array[l,1] = nnew_line[1]     # raw intensity
+        new_lines_array[l,2] = float(nnew_line[1]) - float(dark_lines_array[l,1])     # Intensity subtracted by dark intensity
+        new_lines_array[l,3] = new_lines_array[l,2] * float(cal_lines_array[l,1])     # Multiplying calibration coefficient
+
     for i,ii in enumerate(lines_up):
         peak_up_intensity[i,0] = new_lines_array[np.where(new_lines_array[:,0] == float(ii)), 0]
-        peak_up_intensity[i,1] = new_lines_array[np.where(new_lines_array[:,0] == float(ii)), 1]
+        peak_up_intensity[i,1] = new_lines_array[np.where(new_lines_array[:,0] == float(ii)), 3]
         
     for j,jj in enumerate(lines_lo):
         peak_lo_intensity[j,0] = new_lines_array[np.where(new_lines_array[:,0] == float(jj)), 0]
-        peak_lo_intensity[j,1] = new_lines_array[np.where(new_lines_array[:,0] == float(jj)), 1]
+        peak_lo_intensity[j,1] = new_lines_array[np.where(new_lines_array[:,0] == float(jj)), 3]
         
     peak_intensity = np.r_[peak_up_intensity, peak_lo_intensity]
     a = 0
